@@ -27,7 +27,7 @@ to the users of their modified network service.
 ## Source offer for a deployed version
 
 The official source repository is
-<https://github.com/lordyagizHEX/melink-audio-node>. Before operating a
+<https://github.com/melowdev/melink-audio-node>. Before operating a
 modified AGPL-licensed deployment, publish or otherwise make the exact
 corresponding source available and provide a prominent, no-charge offer to
 the remote users of that deployment. A link to upstream is not sufficient if

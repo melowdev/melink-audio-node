@@ -52,5 +52,5 @@ test('licensing guide explains the AGPL network-source condition', () => {
   const guide = read('docs/licensing.md');
   assert.match(guide, /recipient's choice/);
   assert.match(guide, /section 13/i);
-  assert.match(guide, /github\.com\/lordyagizHEX\/melink-audio-node/);
+  assert.match(guide, /github\.com\/melowdev\/melink-audio-node/);
 });
