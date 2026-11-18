@@ -1,0 +1,1668 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Melink Audio Node API",
+    "version": "0.1.0",
+    "description": "REST API for authenticated Discord voice sessions, direct-media playback, configured provider catalog metadata, plus limited experimental Lavalink v4-style routes. YouTube and Spotify results are metadata only; SoundCloud playback requires an officially authorized stream."
+  },
+  "servers": [
+    {
+      "url": "https://audio.example.net",
+      "description": "Replace with the deployed Audio Node origin"
+    }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Check HTTP process health",
+        "responses": {
+          "200": {
+            "description": "The HTTP process is responding",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "ok"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sessions": {
+      "post": {
+        "summary": "Create an authenticated client session",
+        "security": [
+          {
+            "nodeToken": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clientName": {
+                    "type": "string",
+                    "description": "Optional client label; values longer than 100 characters are truncated."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/v1/stats": {
+      "get": {
+        "summary": "Read node and player statistics",
+        "security": [
+          {
+            "nodeToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current process and session statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stats"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/v1/sources": {
+      "get": {
+        "summary": "List loaded source providers and capabilities",
+        "security": [
+          {
+            "nodeToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configured source state without provider credentials or stream URLs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "sources"
+                  ],
+                  "properties": {
+                    "sources": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SourceStatus"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/v1/sessions/{sessionId}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/sessionId"
+        }
+      ],
+      "delete": {
+        "summary": "Delete a client session",
+        "security": [
+          {
+            "sessionToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deleted"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/v1/sessions/{sessionId}/loadtracks": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/sessionId"
+        }
+      ],
+      "post": {
+        "summary": "Resolve a media identifier or supported playlist",
+        "security": [
+          {
+            "sessionToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "identifier"
+                ],
+                "properties": {
+                  "identifier": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "source": {
+                    "type": "string",
+                    "description": "Optional playlist source ID; forces playlist resolution through this provider."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "One track or an ordered playlist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TrackResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PlaylistResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/v1/sessions/{sessionId}/search": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/sessionId"
+        }
+      ],
+      "post": {
+        "summary": "Search one provider or aggregate configured providers",
+        "description": "Omit source to query all loaded, enabled, configured search sources in parallel. Provider failures are isolated and returned with partial results. YouTube and Spotify return metadata only; playback is true only when the source supports playback and marks the result playable.",
+        "security": [
+          {
+            "sessionToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "query"
+                ],
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "description": "Optional built-in or configured plugin source ID. Omit to aggregate all eligible search sources."
+                  },
+                  "query": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "default": 10
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Single-provider results or aggregated results with per-source status and playability.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/SingleSourceSearchResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/MultiSourceSearchResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "502": {
+            "description": "Provider API request failed"
+          },
+          "503": {
+            "description": "Provider API credentials are not configured"
+          }
+        }
+      }
+    },
+    "/v1/sessions/{sessionId}/catalog": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/sessionId"
+        }
+      ],
+      "post": {
+        "summary": "Resolve a provider catalog identifier",
+        "description": "Returns public metadata only; URI fields, credentials, and signed URLs are omitted.",
+        "security": [
+          {
+            "sessionToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderIdentifier"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Public catalog metadata"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/v1/sessions/{sessionId}/metadata": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/sessionId"
+        }
+      ],
+      "post": {
+        "summary": "Read provider metadata",
+        "description": "Returns public metadata only; URI fields, credentials, and signed URLs are omitted.",
+        "security": [
+          {
+            "sessionToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderIdentifier"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Public metadata"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/v1/sessions/{sessionId}/players/{guildId}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/sessionId"
+        },
+        {
+          "$ref": "#/components/parameters/guildId"
+        }
+      ],
+      "post": {
+        "summary": "Join a voice channel or stop playback",
+        "security": [
+          {
+            "sessionToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "op",
+                      "channelId"
+                    ],
+                    "properties": {
+                      "op": {
+                        "const": "join"
+                      },
+                      "channelId": {
+                        "type": "string",
+                        "pattern": "^\\d{15,22}$"
+                      },
+                      "selfDeaf": {
+                        "type": "boolean",
+                        "default": true
+                      },
+                      "selfMute": {
+                        "type": "boolean",
+                        "default": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "op"
+                    ],
+                    "properties": {
+                      "op": {
+                        "const": "stop"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Player joined or playback stopped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/PlayerSnapshot"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "stopped": {
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "stopped"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Play or pause a track",
+        "security": [
+          {
+            "sessionToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "op",
+                      "track"
+                    ],
+                    "properties": {
+                      "op": {
+                        "const": "play"
+                      },
+                      "track": {
+                        "$ref": "#/components/schemas/Track"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "op",
+                      "paused"
+                    ],
+                    "properties": {
+                      "op": {
+                        "const": "pause"
+                      },
+                      "paused": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "op",
+                      "position"
+                    ],
+                    "properties": {
+                      "op": {
+                        "const": "seek"
+                      },
+                      "position": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "op",
+                      "volume"
+                    ],
+                    "properties": {
+                      "op": {
+                        "const": "volume"
+                      },
+                      "volume": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "op",
+                      "filters"
+                    ],
+                    "properties": {
+                      "op": {
+                        "const": "filters"
+                      },
+                      "filters": {
+                        "type": ["object", "null"],
+                        "description": "Lavalink-compatible FFmpeg filters: volume, equalizer, timescale, karaoke, tremolo, vibrato, lowPass, highPass, rotation, channelMix."
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Track started or pause state updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "track"
+                      ],
+                      "properties": {
+                        "track": {
+                          "type": "object"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "paused"
+                      ],
+                      "properties": {
+                        "paused": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
+      "get": {
+        "summary": "Read player state",
+        "security": [
+          {
+            "sessionToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current player state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerSnapshot"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Destroy a player",
+        "security": [
+          {
+            "sessionToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Player deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deleted"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/v1/ws": {
+      "get": {
+        "summary": "Upgrade to the authenticated WebSocket bridge",
+        "description": "The first JSON packet must be {\"op\":\"authenticate\",\"sessionId\":\"...\",\"sessionToken\":\"...\"}.",
+        "x-websocket-authentication": "Session ID and session token in the first JSON message",
+        "responses": {
+          "101": {
+            "description": "WebSocket protocol upgrade"
+          }
+        }
+      }
+    },
+    "/v4/websocket": {
+      "get": {
+        "summary": "Open experimental Lavalink-style WebSocket",
+        "description": "Requires Authorization and a 15-22 digit User-Id request header. The upgrade response includes Lavalink-Api-Version and Session-Resumed headers. Emits ready, stats, playerUpdate, and supported player events.",
+        "parameters": [
+          {
+            "name": "User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{15,22}$"
+            }
+          },
+          {
+            "name": "Client-Name",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "nodeToken": []
+          }
+        ],
+        "x-websocket-authentication": "Node token in Authorization and the Discord bot user ID in User-Id",
+        "responses": {
+          "101": {
+            "description": "WebSocket protocol upgrade"
+          },
+          "401": {
+            "description": "Missing or invalid node token or User-Id"
+          }
+        }
+      }
+    },
+    "/v4/sessions/{sessionId}/players": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/lavalinkSessionId"
+        }
+      ],
+      "get": {
+        "summary": "List players in a Lavalink-style session",
+        "security": [
+          {
+            "nodeToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Player snapshots for this session"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        }
+      }
+    },
+    "/v4/sessions/{sessionId}/players/{guildId}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/lavalinkSessionId"
+        },
+        {
+          "$ref": "#/components/parameters/guildId"
+        }
+      ],
+      "get": {
+        "summary": "Read a Lavalink-style player",
+        "security": [
+          {
+            "nodeToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Player snapshot"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "Session or player not found"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update voice state or playback controls",
+        "security": [
+          {
+            "nodeToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "voice": {
+                    "type": ["object", "null"],
+                    "properties": {
+                      "token": {
+                        "type": "string"
+                      },
+                      "endpoint": {
+                        "type": "string"
+                      },
+                      "sessionId": {
+                        "type": "string"
+                      },
+                      "channelId": {
+                        "type": "string",
+                        "pattern": "^\\d{15,22}$"
+                      }
+                    }
+                  },
+                  "track": {
+                    "type": ["object", "null"],
+                    "properties": {
+                      "encoded": {
+                        "type": ["string", "null"]
+                      },
+                      "identifier": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "identifier": {
+                    "type": "string"
+                  },
+                  "paused": {
+                    "type": "boolean"
+                  },
+                  "volume": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000
+                  },
+                  "position": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Seeking requires the current track to declare seekability."
+                  },
+                  "filters": {
+                    "type": ["object", "null"],
+                    "description": "Validated FFmpeg filters; highPass is Melink-only. Track seeking is not currently supported."
+                  },
+                  "endTime": {
+                    "type": ["integer", "null"],
+                    "description": "Non-null values return 501."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated player snapshot"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "Session not found"
+          },
+          "501": {
+            "description": "Unsupported track end-time limits"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Destroy a Lavalink-style player",
+        "security": [
+          {
+            "nodeToken": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Player destroyed"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "summary": "Check listener readiness",
+        "responses": {
+          "200": {
+            "description": "The HTTP listener is ready"
+          },
+          "503": {
+            "description": "The HTTP listener is not ready"
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "summary": "Read Prometheus metrics",
+        "security": [
+          {
+            "nodeToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prometheus text exposition format",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/version": {
+      "get": {
+        "summary": "Read the experimental Lavalink compatibility version",
+        "responses": {
+          "200": {
+            "description": "Compatibility version as plain text",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v4/info": {
+      "get": {
+        "summary": "Read experimental Lavalink-style node info",
+        "security": [
+          {
+            "nodeToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Compatibility metadata, supported Lavalink filters, and Melink-only filter extensions"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/v4/stats": {
+      "get": {
+        "summary": "Read experimental Lavalink-style node stats",
+        "security": [
+          {
+            "nodeToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Node.js process, heap, and player estimates"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/v4/loadtracks": {
+      "get": {
+        "summary": "Resolve one identifier using the Lavalink-style response envelope",
+        "security": [
+          {
+            "nodeToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One resolved track in the data property"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "429": {
+            "description": "Provider rate limit exceeded"
+          },
+          "500": {
+            "description": "Provider or node failure"
+          },
+          "503": {
+            "description": "Provider is unavailable or not configured"
+          },
+          "504": {
+            "description": "Provider request timed out"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/v4/encodetracks": {
+      "post": {
+        "summary": "Encode tracks (not implemented)",
+        "security": [
+          {
+            "nodeToken": []
+          }
+        ],
+        "responses": {
+          "501": {
+            "description": "Track encoding is not supported"
+          }
+        }
+      }
+    },
+    "/v4/decodetracks": {
+      "post": {
+        "summary": "Decode tracks (not implemented)",
+        "security": [
+          {
+            "nodeToken": []
+          }
+        ],
+        "responses": {
+          "501": {
+            "description": "Track decoding is not supported"
+          }
+        }
+      }
+    },
+    "/v4/sessions/{sessionId}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/lavalinkSessionId"
+        }
+      ],
+      "patch": {
+        "summary": "Enable or disable same-process session resuming",
+        "security": [
+          {
+            "nodeToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "resuming"
+                ],
+                "properties": {
+                  "resuming": {
+                    "type": "boolean"
+                  },
+                  "timeout": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 600,
+                    "default": 60
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resuming setting stored"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "nodeToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "AUDIO_NODE_TOKEN"
+      },
+      "sessionToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Token returned by POST /v1/sessions"
+      }
+    },
+    "parameters": {
+      "sessionId": {
+        "name": "sessionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "lavalinkSessionId": {
+        "name": "sessionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "guildId": {
+        "name": "guildId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^\\d{15,22}$"
+        }
+      }
+    },
+    "schemas": {
+      "SearchTrackInfo": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Provider identifier; may be a URL or a source-specific identifier such as radio:UUID."
+          },
+          "title": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          },
+          "length": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uri": {
+            "type": "string",
+            "format": "uri",
+            "description": "May be omitted when a URI contains sensitive parameters."
+          },
+          "sourceName": {
+            "type": "string"
+          },
+          "isSeekable": {
+            "type": "boolean"
+          },
+          "isStream": {
+            "type": "boolean"
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "SearchTrack": {
+        "type": "object",
+        "required": [
+          "playable",
+          "info"
+        ],
+        "properties": {
+          "playable": {
+            "type": "boolean"
+          },
+          "info": {
+            "$ref": "#/components/schemas/SearchTrackInfo"
+          }
+        }
+      },
+      "SourceSearchResult": {
+        "type": "object",
+        "required": [
+          "source",
+          "success",
+          "count"
+        ],
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "SourceSearchError": {
+        "type": "object",
+        "required": [
+          "source",
+          "message",
+          "statusCode"
+        ],
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "statusCode": {
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599
+          }
+        }
+      },
+      "SingleSourceSearchResponse": {
+        "type": "object",
+        "required": [
+          "loadType",
+          "source",
+          "tracks"
+        ],
+        "properties": {
+          "loadType": {
+            "const": "search"
+          },
+          "source": {
+            "type": "string"
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchTrack"
+            }
+          }
+        }
+      },
+      "MultiSourceSearchResponse": {
+        "type": "object",
+        "required": [
+          "loadType",
+          "query",
+          "total",
+          "tracks",
+          "sources",
+          "errors",
+          "successfulSources",
+          "failedSources"
+        ],
+        "properties": {
+          "loadType": {
+            "const": "search"
+          },
+          "query": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Unique result count before the overall limit is applied."
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchTrack"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceSearchResult"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceSearchError"
+            }
+          },
+          "successfulSources": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "failedSources": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "SourceStatus": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "pluginId",
+          "loaded",
+          "enabled",
+          "configured",
+          "startupHealthy",
+          "healthy",
+          "consecutiveFailures",
+          "lastSuccessAt",
+          "lastFailureAt",
+          "searchSupported",
+          "catalogSupported",
+          "playbackSupported",
+          "playlistSupported",
+          "metadataSupported"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "pluginId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "loaded": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "startupHealthy": {
+            "type": "boolean"
+          },
+          "healthy": {
+            "type": "boolean"
+          },
+          "consecutiveFailures": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lastSuccessAt": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "lastFailureAt": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "searchSupported": {
+            "type": "boolean"
+          },
+          "catalogSupported": {
+            "type": "boolean"
+          },
+          "playbackSupported": {
+            "type": "boolean"
+          },
+          "playlistSupported": {
+            "type": "boolean"
+          },
+          "metadataSupported": {
+            "type": "boolean"
+          },
+          "declaredCapabilities": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "required": [
+          "sessionId",
+          "sessionToken",
+          "websocketUrl"
+        ],
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sessionToken": {
+            "type": "string"
+          },
+          "websocketUrl": {
+            "const": "/v1/ws"
+          }
+        }
+      },
+      "Stats": {
+        "type": "object",
+        "required": [
+          "sessions",
+          "players",
+          "uptime",
+          "memory"
+        ],
+        "properties": {
+          "sessions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "players": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uptime": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "memory": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "PlayerSnapshot": {
+        "type": "object",
+        "required": [
+          "guildId",
+          "connected",
+          "state",
+          "track",
+          "position"
+        ],
+        "properties": {
+          "guildId": {
+            "type": "string",
+            "pattern": "^\\d{15,22}$"
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string"
+          },
+          "track": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "Deleted": {
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "properties": {
+          "deleted": {
+            "const": true
+          }
+        }
+      },
+      "Track": {
+        "type": "object",
+        "required": [
+          "encoded",
+          "info"
+        ],
+        "properties": {
+          "encoded": {
+            "type": "string"
+          },
+          "info": {
+            "type": "object",
+            "required": [
+              "title"
+            ],
+            "properties": {
+              "title": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "TrackResponse": {
+        "type": "object",
+        "required": [
+          "loadType",
+          "tracks"
+        ],
+        "properties": {
+          "loadType": {
+            "const": "track"
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Track"
+            }
+          }
+        }
+      },
+      "PlaylistResponse": {
+        "type": "object",
+        "required": [
+          "loadType",
+          "playlistInfo",
+          "tracks"
+        ],
+        "properties": {
+          "loadType": {
+            "const": "playlist"
+          },
+          "playlistInfo": {
+            "type": "object",
+            "required": [
+              "name",
+              "selectedTrack"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "selectedTrack": {
+                "type": "integer",
+                "minimum": -1
+              }
+            }
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Track"
+            }
+          }
+        }
+      },
+      "ProviderIdentifier": {
+        "type": "object",
+        "required": [
+          "source",
+          "identifier"
+        ],
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "identifier": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "retryAfterSeconds": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Invalid request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing or invalid credentials",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "RateLimited": {
+        "description": "Request limit exceeded; retry after the indicated interval",
+        "headers": {
+          "Retry-After": {
+            "schema": {
+              "type": "integer"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  }
+}

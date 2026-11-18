@@ -1,0 +1,26 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only OR AGPL-3.0-only -->
+<!-- Copyright (C) 2026 Melow Studio -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="500" viewBox="0 0 1600 500" role="img" aria-labelledby="title description">
+  <title id="title">Melink Audio Node - Melow Studio</title>
+  <desc id="description">A bold M-shaped audio path connecting three nodes, beside the Melink Audio Node wordmark.</desc>
+  <rect width="1600" height="500" fill="#080B14"/>
+
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M180 345V132L300 245 420 132V345" stroke="#F5F7FC" stroke-width="34"/>
+    <path d="M120 345H480" stroke="#367BFA" stroke-width="22"/>
+  </g>
+
+  <g fill="#080B14" stroke-width="16">
+    <circle cx="180" cy="345" r="37" stroke="#367BFA"/>
+    <circle cx="300" cy="245" r="37" stroke="#8058F5"/>
+    <circle cx="420" cy="345" r="37" stroke="#367BFA"/>
+  </g>
+
+  <path d="M560 100V400" stroke="#293144" stroke-width="4"/>
+
+  <g font-family="Inter, Segoe UI, Arial, sans-serif">
+    <text x="640" y="215" fill="#F5F7FC" font-size="96" font-weight="700" letter-spacing="12">MELINK</text>
+    <text x="644" y="302" fill="#B7C2D8" font-size="38" font-weight="500" letter-spacing="11">AUDIO NODE</text>
+    <text x="646" y="374" fill="#7887A4" font-size="23" font-weight="600" letter-spacing="9">MELOW STUDIO</text>
+  </g>
+</svg>

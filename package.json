@@ -1,0 +1,37 @@
+{
+  "name": "melink-audio-node",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An experimental Discord voice node for direct HTTP(S) media streams",
+  "license": "GPL-3.0-only OR AGPL-3.0-only",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test",
+    "test:live": "node scripts/live-playback-validation.js",
+    "test:live:quick": "node scripts/live-playback-validation.js --quick",
+    "benchmark": "node bench/api.js"
+  },
+  "dependencies": {
+    "@discordjs/voice": "^0.19.2",
+    "dotenv": "^16.4.7",
+    "ffmpeg-static": "^5.2.0",
+    "melink-source-radio": "file:plugins/melink-source-radio",
+    "pino": "^10.4.0",
+    "ws": "^8.18.0"
+  },
+  "overrides": {
+    "tar": "^7.5.23"
+  },
+  "devDependencies": {
+    "discord.js": "^14.28.1",
+    "shoukaku": "^4.3.0"
+  },
+  "allowScripts": {
+    "ffmpeg-static@5.3.0": true
+  }
+}

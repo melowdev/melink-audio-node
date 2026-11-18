@@ -1,0 +1,34 @@
+{
+  "name": "melink-source-youtube",
+  "version": "1.0.0",
+  "description": "YouTube source plugin for Melink Audio Node",
+  "type": "module",
+  "main": "./index.js",
+  "exports": "./index.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "license": "GPL-3.0-only OR AGPL-3.0-only",
+  "melinkAudioNode": {
+    "id": "youtube",
+    "name": "YouTube",
+    "version": "1.0.0",
+    "apiVersion": 1,
+    "dependencies": [],
+    "configKeys": [],
+    "secretConfigKeys": [],
+    "sources": [
+      {
+        "id": "youtube",
+        "name": "YouTube",
+        "capabilities": {
+          "search": true,
+          "catalog": false,
+          "playback": true,
+          "playlist": false,
+          "metadata": false
+        }
+      }
+    ]
+  }
+}

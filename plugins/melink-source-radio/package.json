@@ -1,0 +1,35 @@
+
+{
+  "name": "melink-source-radio",
+  "version": "1.0.0",
+  "description": "Radio Browser source plugin for Melink Audio Node",
+  "type": "module",
+  "main": "./index.js",
+  "exports": "./index.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "license": "GPL-3.0-only OR AGPL-3.0-only",
+  "melinkAudioNode": {
+    "id": "melink-radio-browser",
+    "name": "Melink Radio Browser",
+    "version": "1.0.0",
+    "apiVersion": 1,
+    "dependencies": [],
+    "configKeys": [],
+    "secretConfigKeys": [],
+    "sources": [
+      {
+        "id": "radio-browser",
+        "name": "Radio Browser",
+        "capabilities": {
+          "search": true,
+          "catalog": false,
+          "playback": true,
+          "playlist": false,
+          "metadata": false
+        }
+      }
+    ]
+  }
+}
